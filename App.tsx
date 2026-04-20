@@ -142,10 +142,10 @@ const PantryAppContent = () => {
 
 // New component for the Drawer Toggle button
 const DrawerToggleButton = () => {
-  console.log('DrawerToggleButton rendering'); // Add this log
-  const navigation = useNavigation(); // Hook to get navigation object
+  console.log('DrawerToggleButton rendering');
+  const navigation = useNavigation();
   return (
-    <TouchableOpacity onPress={() => { navigation.toggleDrawer(); }} style={{ marginLeft: 10 }}>
+    <TouchableOpacity onPress={() => { navigation.toggleDrawer(); }} style={{ marginLeft: 10, width: 40, height: 40, justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
       <Menu size={24} color="#ffffff" />
     </TouchableOpacity>
   );
