@@ -142,9 +142,10 @@ const PantryAppContent = () => {
 
 // New component for the Drawer Toggle button
 const DrawerToggleButton = () => {
+  console.log('DrawerToggleButton rendering'); // Add this log
   const navigation = useNavigation(); // Hook to get navigation object
   return (
-    <TouchableOpacity onPress={() => { alert('Hamburger clicked!'); navigation.toggleDrawer(); }} style={{ marginLeft: 10 }}>
+    <TouchableOpacity onPress={() => { navigation.toggleDrawer(); }} style={{ marginLeft: 10 }}>
       <Menu size={24} color="#ffffff" />
     </TouchableOpacity>
   );
@@ -155,6 +156,7 @@ function NavigationRoot() {
   const { isDark } = usePantry(); // Consistent use of isDark
 
   const isLargeScreen = dimensions.width >= 768;
+  console.log('NavigationRoot - isLargeScreen:', isLargeScreen); // Add this log
 
   return (
     <NavigationContainer theme={isDark ? DarkTheme : DefaultTheme}>
@@ -173,7 +175,7 @@ function NavigationRoot() {
             fontFamily: 'Roboto-Bold', // Apply Roboto-Bold
             fontSize: 18,
           },
-          headerLeft: ({ navigation: navProp }) => ( // Renamed navProp to avoid confusion with useNavigation from hook
+          headerLeft: ({ navigation: navProp }) => (
             isLargeScreen ? null : <DrawerToggleButton />
           ),
           drawerActiveTintColor: '#3b82f6',

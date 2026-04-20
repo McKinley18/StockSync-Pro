@@ -20,7 +20,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Pantry'>;
 type SortType = 'name' | 'expiry' | 'price' | 'lastPurchased';
 
 const PantryListScreen: React.FC<Props> = ({ navigation }) => {
-  const { pantryItems, consumeItem, wasteItem, categories, purchaseHistory } = usePantry();
+  const { pantryItems, consumeItem, wasteItem, removeItem, categories, purchaseHistory } = usePantry();
   const { colors, dark } = useTheme();
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortType>('name');
@@ -211,7 +211,7 @@ const PantryListScreen: React.FC<Props> = ({ navigation }) => {
                   <TouchableOpacity onPress={() => handleAction(item.id!, item.name, 'waste')} style={styles.actionBtn}>
                     <CircleX size={18} color="#ef4444" />
                   </TouchableOpacity>
-                  <TouchableOpacity onPress={() => { alert('Remove clicked for ID ' + item.id); removeItem(item.id!); }} style={styles.actionBtn}>
+                  <TouchableOpacity onPress={() => removeItem(item.id!)} style={styles.actionBtn}>
                     <Trash2 size={18} color="#ef4444" />
                   </TouchableOpacity>
                 </View>
