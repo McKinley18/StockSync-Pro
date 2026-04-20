@@ -209,6 +209,9 @@ const PantryListScreen: React.FC<Props> = ({ navigation }) => {
                     <CircleCheckBig size={18} color="#10b981" />
                   </TouchableOpacity>
                   <TouchableOpacity onPress={() => handleAction(item.id!, item.name, 'waste')} style={styles.actionBtn}>
+                    <CircleX size={18} color="#ef4444" />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => { alert('Remove clicked for ID ' + item.id); console.log('PantryListScreen: Remove button pressed for ID:', item.id); removeItem(item.id!); }} style={styles.actionBtn}>
                     <Trash2 size={18} color="#ef4444" />
                   </TouchableOpacity>
                 </View>
@@ -281,47 +284,7 @@ const styles = StyleSheet.create({
   actionBtn: { padding: 4 },
   emptyContainer: { alignItems: 'center', marginTop: 100 },
   emptyText: { fontSize: 18 },
-  // Swipeable related styles removed
-  // swipeableItemContainer: {
-  //   position: 'relative',
-  //   marginBottom: 8,
-  // },
-  rightSwipeAction: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: 100,
-    backgroundColor: '#10b981', // Green for consume
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 12,
-    flexDirection: 'column',
-    gap: 5,
-  },
-  rightSwipeText: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 12,
-  },
-  leftSwipeAction: {
-    position: 'absolute',
-    right: 0,
-    top: 0,
-    bottom: 0,
-    width: 100,
-    backgroundColor: '#ef4444', // Red for waste
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 12,
-    flexDirection: 'column',
-    gap: 5,
-  },
-  leftSwipeText: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 12,
-  },
+
   multiSelectToggle: {
     paddingVertical: 12,
     alignItems: 'center',

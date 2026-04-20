@@ -19,7 +19,8 @@ import {
   ChartBar,
   Settings as SettingsIcon,
   ShoppingCart,
-  Package // Import Package icon
+  Package, // Import Package icon
+  Menu // Import Menu icon
 } from 'lucide-react-native';
 
 // Screens
@@ -162,7 +163,15 @@ function NavigationRoot() {
             fontFamily: 'Roboto-Bold', // Apply Roboto-Bold
             fontSize: 18,
           },
-          headerLeft: () => null, // Remove hamburger menu
+          headerLeft: ({ navigation }) => { // Use navigation to open drawer
+            if (isLargeScreen) return null; // Only show on small screens
+            if (!navigation) { alert('Navigation object is undefined!'); return null; } // Add this check
+            return (
+              <TouchableOpacity onPress={() => { alert('Hamburger clicked!'); navigation.toggleDrawer(); }} style={{ marginLeft: 10 }}>
+                <Menu size={24} color="#ffffff" />
+              </TouchableOpacity>
+            );
+          },
           drawerActiveTintColor: '#3b82f6',
           drawerInactiveTintColor: isDark ? '#94a3b8' : '#475569',
           drawerStyle: {

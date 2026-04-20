@@ -173,7 +173,9 @@ export const updatePantryItem = (item: PantryItem) => {
 };
 
 export const deletePantryItem = (id: number) => {
+  console.log('Database: Deleting item with ID:', id, 'Current pantryItems length:', pantryItems.length);
   pantryItems = pantryItems.filter(i => i.id !== id);
+  console.log('Database: PantryItems after filter:', pantryItems.length);
   saveToStorage('pantry', pantryItems);
 };
 

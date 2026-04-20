@@ -196,6 +196,7 @@ export const PantryProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const removeItem = (id: number) => { 
+    console.log('PantryContext: Attempting to remove item with ID:', id);
     const item = pantryItems.find(i => i.id === id);
     deletePantryItem(id); 
     refreshData();
