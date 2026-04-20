@@ -5,7 +5,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useWindowDimensions, View, StyleSheet, TouchableOpacity, SafeAreaView } from 'react-native';
 import { useFonts, Roboto_400Regular, Roboto_500Medium, Roboto_700Bold } from '@expo-google-fonts/roboto'; // Re-enabled
-import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme, DarkTheme, useNavigation } from '@react-navigation/native'; // Added useNavigation
 import { createDrawerNavigator, DrawerContentScrollView, DrawerItem } from '@react-navigation/drawer';
 import { PantryProvider, usePantry } from './src/context/PantryContext';
 
@@ -140,6 +140,16 @@ const PantryAppContent = () => {
   );
 };
 
+// New component for the Drawer Toggle button
+const DrawerToggleButton = () => {
+  const navigation = useNavigation(); // Hook to get navigation object
+  return (
+    <TouchableOpacity onPress={() => { alert('Hamburger clicked!'); navigation.toggleDrawer(); }} style={{ marginLeft: 10 }}>
+      <Menu size={24} color="#ffffff" />
+    </TouchableOpacity>
+  );
+};
+
 function NavigationRoot() {
   const dimensions = useWindowDimensions();
   const { isDark } = usePantry(); // Consistent use of isDark
@@ -163,15 +173,9 @@ function NavigationRoot() {
             fontFamily: 'Roboto-Bold', // Apply Roboto-Bold
             fontSize: 18,
           },
-          headerLeft: ({ navigation }) => { // Use navigation to open drawer
-            if (isLargeScreen) return null; // Only show on small screens
-            if (!navigation) { alert('Navigation object is undefined!'); return null; } // Add this check
-            return (
-              <TouchableOpacity onPress={() => { alert('Hamburger clicked!'); navigation.toggleDrawer(); }} style={{ marginLeft: 10 }}>
-                <Menu size={24} color="#ffffff" />
-              </TouchableOpacity>
-            );
-          },
+          headerLeft: ({ navigation: navProp }) => ( // Renamed navProp to avoid confusion with useNavigation from hook
+            isLargeScreen ? null : <DrawerToggleButton />
+          ),
           drawerActiveTintColor: '#3b82f6',
           drawerInactiveTintColor: isDark ? '#94a3b8' : '#475569',
           drawerStyle: {
@@ -312,33 +316,6 @@ const styles = StyleSheet.create({
     marginTop: 2,
     fontFamily: 'Roboto-Regular', // Apply Roboto-Regular
     color: 'rgba(255,255,255,0.6)',
-  },
-  drawerFooter: {
-    padding: 20,
-    borderTopWidth: 1,
-  },
-  footerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  footerItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  footerItemText: {
-    fontSize: 13,
-    fontFamily: 'Roboto-Medium', // Apply Roboto-Medium
-    color: '#ffffff',
-  },
-  brandingText: {
-    fontSize: 11,
-    fontFamily: 'Roboto-Regular', // Apply Roboto-Regular
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-    color: 'rgba(255,255,255,0.5)',
     marginTop: 8,
     textAlign: 'center',
   },

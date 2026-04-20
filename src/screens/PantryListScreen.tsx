@@ -211,7 +211,7 @@ const PantryListScreen: React.FC<Props> = ({ navigation }) => {
                   <TouchableOpacity onPress={() => handleAction(item.id!, item.name, 'waste')} style={styles.actionBtn}>
                     <CircleX size={18} color="#ef4444" />
                   </TouchableOpacity>
-                  <TouchableOpacity onPress={() => { alert('Remove clicked for ID ' + item.id); console.log('PantryListScreen: Remove button pressed for ID:', item.id); removeItem(item.id!); }} style={styles.actionBtn}>
+                  <TouchableOpacity onPress={() => { alert('Remove clicked for ID ' + item.id); removeItem(item.id!); }} style={styles.actionBtn}>
                     <Trash2 size={18} color="#ef4444" />
                   </TouchableOpacity>
                 </View>
