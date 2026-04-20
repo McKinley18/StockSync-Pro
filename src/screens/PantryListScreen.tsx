@@ -208,9 +208,6 @@ const PantryListScreen: React.FC<Props> = ({ navigation }) => {
                   <TouchableOpacity onPress={() => handleAction(item.id!, item.name, 'consume')} style={styles.actionBtn}>
                     <CircleCheckBig size={18} color="#10b981" />
                   </TouchableOpacity>
-                  <TouchableOpacity onPress={() => handleAction(item.id!, item.name, 'waste')} style={styles.actionBtn}>
-                    <CircleX size={18} color="#ef4444" />
-                  </TouchableOpacity>
                   <TouchableOpacity onPress={() => removeItem(item.id!)} style={styles.actionBtn}>
                     <Trash2 size={18} color="#ef4444" />
                   </TouchableOpacity>
