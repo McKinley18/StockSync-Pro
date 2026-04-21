@@ -1,15 +1,17 @@
 import '@expo/metro-runtime';
-import 'react-native-gesture-handler'; // Required for react-native-reanimated for some gesture-handler components
-// import Animated from 'react-native-reanimated'; // Directly import Animated for global availability (removed as AnimatedPressable is removed)
+import 'react-native-gesture-handler'; 
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import React, { useState, useEffect, useCallback } from 'react';
-import { useWindowDimensions, View, StyleSheet, TouchableOpacity, SafeAreaView } from 'react-native';
-import { useFonts, Roboto_400Regular, Roboto_500Medium, Roboto_700Bold } from '@expo-google-fonts/roboto'; // Re-enabled
-import { NavigationContainer, DefaultTheme, DarkTheme, useNavigation } from '@react-navigation/native'; // Added useNavigation
+import React, { useCallback, useMemo } from 'react';
+import { useWindowDimensions, View, StyleSheet, TouchableOpacity, SafeAreaView, Alert } from 'react-native';
+import { useFonts, Roboto_400Regular, Roboto_500Medium, Roboto_700Bold } from '@expo-google-fonts/roboto'; 
+import { NavigationContainer, DefaultTheme, DarkTheme, useNavigation } from '@react-navigation/native'; 
 import { createDrawerNavigator, DrawerContentScrollView, DrawerItem } from '@react-navigation/drawer';
-import { PantryProvider, usePantry } from './src/context/PantryContext';
+import { ToastProvider } from './src/components/Toast';
+import { PantryProvider, usePantry } from './src/context/PantryContext'; 
+import { ProfileProvider, useProfile } from './src/context/ProfileContext';
+import * as Font from 'expo-font';
 
-// Icons (Lucide v1.8.0 compatible names)
+// Icons
 import { 
   LayoutDashboard,
   ShoppingBasket,
@@ -18,9 +20,10 @@ import {
   CalendarDays,
   ChartBar,
   Settings as SettingsIcon,
+  User,
   ShoppingCart,
-  Package, // Import Package icon
-  Menu // Import Menu icon
+  Package, 
+  Menu 
 } from 'lucide-react-native';
 
 // Screens
@@ -32,10 +35,16 @@ import MealPlannerScreen from './src/screens/MealPlannerScreen';
 import InsightsScreen from './src/screens/InsightsScreen';
 import ShoppingListScreen from './src/screens/ShoppingListScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
+import ProfileSettingsScreen from './src/screens/ProfileSettingsScreen';
 import CategoryManagementScreen from './src/screens/CategoryManagementScreen';
 import StoreManagementScreen from './src/screens/StoreManagementScreen';
+import OnboardingScreen from './src/screens/OnboardingScreen';
+import LocationSettingsScreen from './src/screens/LocationSettingsScreen';
 
+// Components
 import ErrorBoundary from './src/components/ErrorBoundary';
+import AppText from './src/components/AppText';
+import LoadingOverlay from './src/components/LoadingOverlay';
 
 const Drawer = createDrawerNavigator();
 
@@ -48,47 +57,98 @@ export type RootStackParamList = {
   Shopping: undefined;
   Insights: undefined;
   Settings: undefined;
+  ProfileSettings: undefined;
+  LocationSettings: undefined;
   Categories: undefined;
   Stores: undefined;
   RecipeBook: undefined;
   RecipeDetail: { recipeId: number };
 };
 
-import AppText from './src/components/AppText';
-// import AnimatedPressable from './src/components/AnimatedPressable'; // Removed - using TouchableOpacity directly
+const MyDefaultTheme = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+    primary: '#3b82f6',
+    background: '#f1f5f9',
+    card: '#cbd5e1',
+    text: '#1e293b',
+    border: '#94a3b8',
+    notification: 'rgb(255, 69, 58)',
+    textSecondary: '#475569',
+  },
+};
 
-// Moved from above to ensure all necessary imports are available for NavigationRoot
-import LoadingOverlay from './src/components/LoadingOverlay';
+const MyDarkTheme = {
+  ...DarkTheme,
+  colors: {
+    ...DarkTheme.colors,
+    primary: '#3b82f6',
+    background: '#0f172a',
+    card: '#1e293b',
+    text: '#f8fafc',
+    border: '#334155',
+    notification: 'rgb(255, 69, 58)',
+    textSecondary: '#94a3b8',
+  },
+};
 
 const CustomDrawerContent = (props: any) => {
-  const { state, navigation } = props;
+  const { state, navigation, theme } = props;
   const activeRouteName = state.routes[state.index].name;
-  const { isDark } = usePantry();
+  const colors = theme.colors;
+
+  const baseDrawerHeaderStyle = { 
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+    borderBottomWidth: 1,
+    height: 70,
+    justifyContent: 'center' as const,
+    width: '100%' as const,
+    flexDirection: 'row' as const, 
+    alignItems: 'center' as const, 
+    gap: 10,
+    zIndex: 10,
+    overflow: 'hidden' as const,
+  };
+
+  const baseDrawerFooterStyle = {
+    paddingHorizontal: 16,
+    paddingVertical: 20,
+    borderTopWidth: 1,
+    width: '100%' as const,
+    zIndex: 10,
+    overflow: 'hidden' as const,
+  };
+
+  const headerStyleComputed = [baseDrawerHeaderStyle, { 
+    backgroundColor: '#475569',
+    borderBottomColor: colors.border 
+  }];
+  const footerStyleComputed = [baseDrawerFooterStyle, { 
+    backgroundColor: '#475569',
+    borderTopColor: colors.border 
+  }];
 
   const sections = {
     'MAIN': ['Home', 'Pantry', 'AddItem', 'Shopping'],
     'PLANNING': ['Recipes', 'Planner'],
-    'ANALYTICS': ['Insights', 'Settings'],
+    'ANALYTICS': ['Insights', 'Settings', 'ProfileSettings'],
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: isDark ? '#0f172a' : '#ffffff' }}>
-      <View style={[styles.drawerHeader, { 
-        backgroundColor: isDark ? '#1e293b' : '#334155',
-        borderBottomColor: isDark ? '#334155' : '#e2e8f0' 
-      }]}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <Package size={24} color="#ffffff" />
-          <AppText weight="bold" style={styles.drawerTitle}>StockSync Pro</AppText>
-        </View>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.card }}>
+      <View style={headerStyleComputed}>
+        <Package size={24} color="#ffffff" />
+        <AppText weight="bold" style={[styles.drawerTitle, { color: '#ffffff' }]}>StockSync</AppText>
       </View>
       
-      <DrawerContentScrollView {...props}>
+      <DrawerContentScrollView {...props} contentContainerStyle={{ backgroundColor: colors.card }}>
         {Object.entries(sections).map(([sectionTitle, routes]) => (
           <View key={sectionTitle}>
-            <AppText weight="bold" style={[styles.sectionHeader, { color: isDark ? '#475569' : '#94a3b8' }]}>{sectionTitle}</AppText>
+            <AppText weight="bold" style={[styles.sectionHeader, { color: colors.textSecondary }]}>{sectionTitle}</AppText>
             {routes.map((routeName) => {
-              const route = state.routes.find(r => r.name === routeName);
+              const route = state.routes.find((r: any) => r.name === routeName);
               if (!route) return null;
               const descriptor = props.descriptors[route.key];
               const { title, drawerIcon } = descriptor.options;
@@ -97,11 +157,11 @@ const CustomDrawerContent = (props: any) => {
               return (
                 <DrawerItem
                   key={routeName}
-                  label={() => <AppText weight="medium" style={{ color: isFocused ? '#3b82f6' : (isDark ? '#94a3b8' : '#475569') }}>{title}</AppText>}
-                  icon={({ color, size }) => drawerIcon({ color: isFocused ? '#3b82f6' : (isDark ? '#94a3b8' : '#475569'), size, focused: isFocused })}
+                  label={() => <AppText weight="medium" style={{ color: isFocused ? colors.primary : colors.text }}>{title}</AppText>}
+                  icon={({ color, size }) => drawerIcon({ color: isFocused ? colors.primary : colors.text, size, focused: isFocused })}
                   focused={isFocused}
-                  activeTintColor={'#3b82f6'}
-                  inactiveTintColor={isDark ? '#94a3b8' : '#475569'}
+                  activeTintColor={colors.primary}
+                  inactiveTintColor={colors.text}
                   onPress={() => navigation.navigate(routeName)}
                 />
               );
@@ -110,28 +170,24 @@ const CustomDrawerContent = (props: any) => {
         ))}
       </DrawerContentScrollView>
       
-      <View style={[styles.drawerFooter, { 
-        backgroundColor: isDark ? '#1e293b' : '#334155',
-        borderTopColor: isDark ? '#334155' : '#e2e8f0' 
-      }]}>
-        <View style={styles.footerRow}>
-          {/* Settings moved to main drawer list */}
-        </View>
-
-        <AppText style={[styles.brandingText, { marginBottom: 10, fontSize: 9 }]}>
+      <View style={footerStyleComputed}>
+        <AppText style={[styles.brandingText, { marginBottom: 10, fontSize: 9, color: '#ffffff' }]}>
           Disclaimer: Sales figures and predictions are for organizational purposes only and may not reflect real-world values.
         </AppText>
-        <AppText style={styles.brandingText}>© Monolith Studios v2.4.0</AppText>
+        <AppText style={[styles.brandingText, { color: '#ffffff' }]}>© Monolith Studios v2.4.0</AppText>
       </View>
     </SafeAreaView>
   );
 };
 
-import * as Font from 'expo-font';
-
 const PantryAppContent = () => {
   const { isLoading } = usePantry();
-  // console.log('Rendering PantryAppContent. isLoading:', isLoading); // Removed
+  const { profile } = useProfile();
+
+  if (!profile || !profile.liability_accepted) {
+    return <OnboardingScreen />;
+  }
+
   return (
     <ErrorBoundary>
       <NavigationRoot />
@@ -140,10 +196,8 @@ const PantryAppContent = () => {
   );
 };
 
-// New component for the Drawer Toggle button
 const DrawerToggleButton = () => {
-  console.log('DrawerToggleButton rendering');
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
   return (
     <TouchableOpacity onPress={() => { navigation.toggleDrawer(); }} style={{ marginLeft: 10, width: 40, height: 40, justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
       <Menu size={24} color="#ffffff" />
@@ -153,36 +207,34 @@ const DrawerToggleButton = () => {
 
 function NavigationRoot() {
   const dimensions = useWindowDimensions();
-  const { isDark } = usePantry(); // Consistent use of isDark
-
+  const { isDark } = usePantry();
   const isLargeScreen = dimensions.width >= 768;
-  console.log('NavigationRoot - isLargeScreen:', isLargeScreen); // Add this log
 
   return (
-    <NavigationContainer theme={isDark ? DarkTheme : DefaultTheme}>
+    <NavigationContainer theme={isDark ? MyDarkTheme : MyDefaultTheme}>
       <Drawer.Navigator
         id="root-drawer"
-        drawerContent={(props) => <CustomDrawerContent {...props} />}
+        drawerContent={(props) => <CustomDrawerContent {...props} theme={isDark ? MyDarkTheme : MyDefaultTheme} />} 
         screenOptions={{
           drawerType: isLargeScreen ? 'permanent' : 'front',
           headerShown: true,
           headerStyle: {
-            backgroundColor: isDark ? '#0f172a' : '#1e293b',
+            backgroundColor: '#0f172a',
             height: 70,
           },
           headerTintColor: '#ffffff',
           headerTitleStyle: {
-            fontFamily: 'Roboto-Bold', // Apply Roboto-Bold
+            fontFamily: 'Roboto-Bold',
             fontSize: 18,
           },
-          headerLeft: ({ navigation: navProp }) => (
+          headerLeft: () => (
             isLargeScreen ? null : <DrawerToggleButton />
           ),
-          drawerActiveTintColor: '#3b82f6',
-          drawerInactiveTintColor: isDark ? '#94a3b8' : '#475569',
+          drawerActiveTintColor: isDark ? MyDarkTheme.colors.primary : MyDefaultTheme.colors.primary,
+          drawerInactiveTintColor: isDark ? MyDarkTheme.colors.textSecondary : MyDefaultTheme.colors.textSecondary,
           drawerStyle: {
             width: 240,
-            backgroundColor: isDark ? '#0f172a' : '#ffffff',
+            backgroundColor: isDark ? MyDarkTheme.colors.card : MyDefaultTheme.colors.card,
           },
         }}
       >
@@ -250,18 +302,34 @@ function NavigationRoot() {
             title: 'Settings'
           }}
         />
+        <Drawer.Screen 
+          name="ProfileSettings" 
+          component={ProfileSettingsScreen} 
+          options={{
+            drawerIcon: ({ color, size }) => <User size={size} color={color} />,
+            title: 'User Profile'
+          }}
+        />
+        <Drawer.Screen 
+          name="LocationSettings" 
+          component={LocationSettingsScreen} 
+          options={{
+            drawerIcon: ({ color, size }) => <SettingsIcon size={size} color={color} />,
+            title: 'Location Settings'
+          }}
+        />
         <Drawer.Screen
           name="Categories"
           component={CategoryManagementScreen}
           options={{
-            drawerItemStyle: { height: 0 } // Hide from drawer
+            drawerItemStyle: { height: 0 }
           }}
         />
         <Drawer.Screen
           name="Stores"
           component={StoreManagementScreen}
           options={{
-            drawerItemStyle: { height: 0 } // Hide from drawer
+            drawerItemStyle: { height: 0 }
           }}
         />
       </Drawer.Navigator>
@@ -269,64 +337,54 @@ function NavigationRoot() {
   );
 }
 
-import { ToastProvider } from './src/components/Toast';
-
 export default function App() {
   const [fontsLoaded] = useFonts({
     'Roboto-Regular': Roboto_400Regular,
-    'Roboto-Medium': Roboto_500Medium,
+    'Roboto-500Medium': Roboto_500Medium,
     'Roboto-Bold': Roboto_700Bold,
   });
 
   const onLayoutRootView = useCallback(async () => {
     if (fontsLoaded) {
-      // await SplashScreen.hideAsync(); // Removed
+      // await SplashScreen.hideAsync();
     }
   }, [fontsLoaded]);
 
-  // if (!fontsLoaded) { // Temporarily removed blocking font loading
-  //   return null;
-  // }
-
   return (
     <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutRootView}>
-      <ToastProvider>
-        <PantryProvider>
-          <PantryAppContent />
-        </PantryProvider>
+      <ToastProvider> 
+        <ProfileProvider>
+          <PantryProvider>
+            <PantryAppContent />
+          </PantryProvider>
+        </ProfileProvider>
       </ToastProvider>
     </GestureHandlerRootView>
   );
 }
 
 const styles = StyleSheet.create({
-  drawerHeader: {
-    paddingHorizontal: 24,
-    paddingVertical: 20,
-    borderBottomWidth: 1,
-    backgroundColor: '#334155', // A shade lighter than #1e293b
-    height: 70, // Aligning height with main header
-    justifyContent: 'center',
-  },
   drawerTitle: {
     fontSize: 20,
-    fontFamily: 'Roboto-Bold', // Apply Roboto-Bold
+    fontFamily: 'Roboto-Bold',
     color: '#ffffff',
-  },
-  drawerVersion: {
-    fontSize: 11,
-    marginTop: 2,
-    fontFamily: 'Roboto-Regular', // Apply Roboto-Regular
-    color: 'rgba(255,255,255,0.6)',
-    marginTop: 8,
-    textAlign: 'center',
   },
   sectionHeader: {
     fontSize: 11,
-    fontFamily: 'Roboto-Bold', // Apply Roboto-Bold
+    fontFamily: 'Roboto-Bold',
     textTransform: 'uppercase',
     paddingHorizontal: 16,
     paddingTop: 20,
     paddingBottom: 8,
   },
+  brandingText: {
+    fontSize: 10,
+    textAlign: 'center',
+    opacity: 0.8,
+  },
+  footerRow: {
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    marginBottom: 10,
+  }
 });

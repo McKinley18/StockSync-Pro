@@ -39,7 +39,7 @@ class ErrorBoundary extends Component<Props, State> {
             </View>
             <Text style={styles.title}>System Interruption</Text>
             <Text style={styles.message}>
-              StockSync encountered an unexpected error. Don't worry, your data is safe in the local database.
+              StockSync encountered an unexpected error. Don&apos;t worry, your data is safe in the local database.
             </Text>
             
             <ScrollView style={styles.errorScroll}>

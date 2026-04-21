@@ -1,16 +1,15 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch } from 'react-native';
 import { useTheme } from '@react-navigation/native';
-import { Tag, Store, ChevronRight, Settings, Info, Moon, Sun } from 'lucide-react-native';
+import { Tag, Store, ChevronRight, Moon, Sun } from 'lucide-react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../App';
-import { Switch } from 'react-native';
 import { usePantry } from '../context/PantryContext';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Settings'>;
 
 const SettingsScreen: React.FC<Props> = ({ navigation }) => {
-  const { colors, dark } = useTheme();
+  const { colors } = useTheme();
   const { isDark, setThemeMode } = usePantry();
 
   const SettingsItem = ({ icon: Icon, title, subtitle, onPress }: { icon: any, title: string, subtitle: string, onPress: () => void }) => (
@@ -31,13 +30,9 @@ const SettingsScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.heroBanner, { backgroundColor: isDark ? '#0f172a' : '#ffffff' }]}>
-        <Text style={styles.heroTitle}>Settings</Text>
-        <Text style={styles.heroSubtitle}>Customize StockSync to fit your home.</Text>
-      </View>
-
       <View style={styles.section}>
-        <Text style={styles.sectionHeader}>Preferences</Text>
+        <Text style={styles.titleText}>StockSync</Text>
+        <Text style={[styles.sectionHeader, { marginTop: 20 }]}>Preferences</Text>
         
         <View style={[styles.item, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={[styles.iconBox, { backgroundColor: isDark ? '#1e293b' : '#f1f5f9' }]}>
@@ -91,11 +86,9 @@ const SettingsScreen: React.FC<Props> = ({ navigation }) => {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  heroBanner: { padding: 30, backgroundColor: '#1e293b', marginBottom: 10 },
-  heroTitle: { fontSize: 24, fontWeight: 'bold', color: 'white' },
-  heroSubtitle: { fontSize: 16, color: 'rgba(255,255,255,0.7)', marginTop: 4 },
   section: { padding: 20 },
   sectionHeader: { fontSize: 13, fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 16, marginLeft: 4 },
+  titleText: { fontSize: 28, fontWeight: 'bold', color: '#3b82f6', marginBottom: 5 },
   item: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 16, borderWidth: 1, marginBottom: 12 },
   iconBox: { width: 44, height: 44, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginRight: 16 },
   textContainer: { flex: 1 },

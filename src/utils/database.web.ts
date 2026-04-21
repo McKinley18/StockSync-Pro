@@ -59,6 +59,19 @@ export interface RecipeIngredient {
   unit: string;
 }
 
+export interface UserProfile {
+  id?: number;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  zipCode?: string;
+  allergies: string;
+  dislikes: string;
+  liability_accepted: number;
+  preferred_store?: string;
+  frequent_items: string;
+}
+
 export const CATEGORIES = [
   'Produce', 'Dairy', 'Meat & Seafood', 'Grains & Pasta', 'Canned Goods', 'Snacks', 'Beverages', 'Frozen', 'Bakery', 'Other'
 ];
@@ -91,6 +104,7 @@ let mealPlan: MealPlanItem[] = loadFromStorage('mealplan', []);
 let categories: Category[] = loadFromStorage('categories', CATEGORIES.map((n, i) => ({ id: i + 1, name: n })));
 let savedRecipes: SavedRecipe[] = loadFromStorage('recipes', []);
 let recipeIngredients: RecipeIngredient[] = loadFromStorage('ingredients', []);
+let userProfile: UserProfile = loadFromStorage('userProfile', { firstName: '', lastName: '', email: '', zipCode: '', allergies: '', dislikes: '', liability_accepted: 0, frequent_items: '' });
 
 let nextId: number = loadFromStorage('nextId', 1); // Centralized ID counter
 
@@ -135,6 +149,19 @@ export const initDatabase = () => {
     saveToStorage('recipes', savedRecipes);
     saveToStorage('ingredients', recipeIngredients);
   }
+};
+
+// User Profile
+export const getUserProfile = (): UserProfile => userProfile;
+
+export const saveUserProfile = (profile: UserProfile) => {
+  userProfile = { ...userProfile, ...profile };
+  saveToStorage('userProfile', userProfile);
+};
+
+export const updateLiabilityStatus = (accepted: boolean) => {
+  userProfile.liability_accepted = accepted ? 1 : 0;
+  saveToStorage('userProfile', userProfile);
 };
 
 // Category CRUD

@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, FlatList, StyleSheet, Image, TouchableOpacity, Linking, ActivityIndicator, Alert } from 'react-native';
+import Fuse from 'fuse.js';
 import { usePantry } from '../context/PantryContext';
-import { ExternalLink, RefreshCw, CircleCheckBig, BookmarkPlus } from 'lucide-react-native';
+import { useProfile } from '../context/ProfileContext';
+import { UsageAuditor } from '../utils/analytics';
+import { ExternalLink, RefreshCw, CircleCheckBig, BookmarkPlus, AlertTriangle } from 'lucide-react-native';
+import { normalizeIngredient } from '../utils/ingredientParser';
 import { useTheme } from '@react-navigation/native';
 import { RecipeIngredient } from '../utils/database';
 
@@ -9,15 +13,20 @@ interface Recipe {
   idMeal: string;
   strMeal: string;
   strMealThumb: string;
+  strInstructions: string;
 }
 
 interface RecipeWithMatch extends Recipe {
   matchPercentage: number;
   missingCount: number;
+  isAllergySafe: boolean;
+  hasDislike: boolean;
+  ingredientList: string[];
 }
 
 const RecipeScreen: React.FC = () => {
   const { pantryItems, saveRecipe } = usePantry();
+  const { profile, isSafe, checkLiability } = useProfile();
   const { colors, dark } = useTheme();
   const [recipes, setRecipes] = useState<RecipeWithMatch[]>([]);
   const [loading, setLoading] = useState(false);
@@ -41,15 +50,50 @@ const RecipeScreen: React.FC = () => {
             const ing = fullMeal[`strIngredient${i}`];
             if (ing && ing.trim()) ingredients.push(ing.toLowerCase());
           }
+          
+          const normalizedPantryItems = pantryItems.map(item => ({
+            ...item,
+            normalizedName: normalizeIngredient(item.name),
+          }));
+
+          const fuse = new Fuse(normalizedPantryItems, {
+            keys: ['normalizedName'],
+            threshold: 0.3,
+            ignoreLocation: true,
+          });
+
           let matchCount = 0;
           ingredients.forEach(ing => {
-            const hasIt = pantryItems.some(p => ing.includes(p.name.toLowerCase()) || p.name.toLowerCase().includes(ing));
-            if (hasIt) matchCount++;
+            const normalizedIng = normalizeIngredient(ing);
+            if (normalizedIng) {
+              const result = fuse.search(normalizedIng);
+              if (result.length > 0) {
+                matchCount++;
+              }
+            }
           });
+
           const percentage = ingredients.length > 0 ? Math.round((matchCount / ingredients.length) * 100) : 0;
-          return { ...meal, matchPercentage: percentage, missingCount: ingredients.length - matchCount };
+          
+          const isAllergySafe = ingredients.every(ing => isSafe(ing));
+          const dislikes = profile?.dislikes?.split(',').map(d => d.trim().toLowerCase()) || [];
+          const hasDislike = ingredients.some(ing => dislikes.some(d => ing.includes(d)));
+
+          return { 
+            ...fullMeal, 
+            matchPercentage: percentage, 
+            missingCount: ingredients.length - matchCount,
+            isAllergySafe,
+            hasDislike,
+            ingredientList: ingredients
+          };
         }));
-        setRecipes(detailedMeals.sort((a, b) => b.matchPercentage - a.matchPercentage));
+        
+        // Filter out allergy risks
+        const filtered = detailedMeals.filter(m => m.isAllergySafe);
+        
+        // Sorting by preference logic placeholder (requires pantry analytics conversion)
+        setRecipes(filtered.sort((a, b) => b.matchPercentage - a.matchPercentage));
       } else {
         setRecipes([]);
       }
@@ -65,26 +109,22 @@ const RecipeScreen: React.FC = () => {
   }, [pantryItems]);
 
   const handleSaveToBook = async (meal: RecipeWithMatch) => {
+    if (!checkLiability()) {
+      Alert.alert("Liability Agreement Required", "Please accept the Liability Agreement in Settings to proceed.");
+      return;
+    }
+    
     try {
-      const response = await fetch(`https://www.themealdb.com/api/json/v1/1/lookup.php?i=${meal.idMeal}`);
-      const data = await response.json();
-      const fullMeal = data.meals[0];
+      const ingredients: Omit<RecipeIngredient, 'id' | 'recipeId'>[] = meal.ingredientList.map(name => ({ 
+        name, 
+        quantity: 1,
+        unit: 'unit'
+      }));
       
-      const ingredients: Omit<RecipeIngredient, 'id' | 'recipeId'>[] = [];
-      for (let i = 1; i <= 20; i++) {
-        const name = fullMeal[`strIngredient${i}`];
-        const measure = fullMeal[`strMeasure${i}`];
-        if (name && name.trim()) {
-          ingredients.push({ 
-            name, 
-            quantity: 1,
-            unit: measure || 'unit'
-          });
-        }
-      }
-      
+      const finalInstructions = meal.strInstructions.split('\n').filter((s: string) => s.trim() !== '');
+
       saveRecipe(
-        { name: meal.strMeal, instructions: fullMeal.strInstructions },
+        { name: meal.strMeal, instructions: JSON.stringify({ type: 'steps', content: finalInstructions }) },
         ingredients
       );
       Alert.alert("Success", `${meal.strMeal} added to your Recipe Book!`);
@@ -94,6 +134,10 @@ const RecipeScreen: React.FC = () => {
   };
 
   const openRecipe = (id: string) => {
+    if (!checkLiability()) {
+      Alert.alert("Liability Agreement Required", "Please accept the Liability Agreement in Settings to proceed.");
+      return;
+    }
     Linking.openURL(`https://www.themealdb.com/meal/${id}`);
   };
 
@@ -124,6 +168,12 @@ const RecipeScreen: React.FC = () => {
               <View style={styles.recipeInfo}>
                 <View>
                   <Text style={[styles.recipeName, { color: colors.text }]} numberOfLines={1}>{item.strMeal}</Text>
+                  {item.hasDislike && (
+                    <View style={styles.dislikeWarning}>
+                      <AlertTriangle size={12} color="#ef4444" />
+                      <Text style={styles.dislikeText}>Contains your disliked items</Text>
+                    </View>
+                  )}
                   <View style={[styles.matchBadge, { backgroundColor: dark ? '#1e293b' : '#f8fafc' }]}>
                     <CircleCheckBig size={12} color={item.matchPercentage > 70 ? "#10b981" : "#f59e0b"} />
                     <Text style={[styles.matchText, { color: item.matchPercentage > 70 ? "#059669" : "#d97706" }]}>
@@ -146,8 +196,7 @@ const RecipeScreen: React.FC = () => {
           )}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Text style={[styles.emptyText, { color: colors.text }]}>No recipes identified.</Text>
-              <Text style={[styles.emptySubtext, { color: dark ? '#64748b' : '#94a3b8' }]}>Add common pantry items like rice, flour, or chicken to see matches.</Text>
+              <Text style={[styles.emptyText, { color: colors.text }]}>No safe recipes identified.</Text>
             </View>
           }
           contentContainerStyle={{ paddingBottom: 40 }}
@@ -169,6 +218,8 @@ const styles = StyleSheet.create({
   recipeImage: { width: 110, height: 110 },
   recipeInfo: { flex: 1, padding: 16, justifyContent: 'space-between' },
   recipeName: { fontSize: 16, fontWeight: 'bold' },
+  dislikeWarning: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
+  dislikeText: { fontSize: 11, color: '#ef4444' },
   matchBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, alignSelf: 'flex-start' },
   matchText: { fontSize: 12, fontWeight: '700' },
   actionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 },
@@ -178,7 +229,6 @@ const styles = StyleSheet.create({
   linkText: { color: '#3b82f6', fontSize: 12, fontWeight: '600' },
   emptyContainer: { alignItems: 'center', marginTop: 100, paddingHorizontal: 20 },
   emptyText: { fontSize: 19, fontWeight: 'bold', textAlign: 'center' },
-  emptySubtext: { fontSize: 15, color: '#94a3b8', marginTop: 8, textAlign: 'center' },
 });
 
 export default RecipeScreen;

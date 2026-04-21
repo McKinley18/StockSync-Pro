@@ -1,11 +1,10 @@
-import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, Dimensions, TouchableOpacity, Alert, Fragment } from 'react-native'; // Added Fragment
+import React, { useMemo, Fragment } from 'react';
+import { View, Text, StyleSheet, ScrollView, Dimensions, TouchableOpacity, Alert } from 'react-native'; 
 import { usePantry } from '../context/PantryContext';
-import { TriangleAlert, PackageSearch, TrendingDown, Clock, CloudCheck, DollarSign, CircleCheckBig, ShoppingCart } from 'lucide-react-native';
+import { TriangleAlert, PackageSearch, TrendingDown, Clock, CloudCheck, DollarSign, CircleCheckBig, ShoppingCart, BookOpen } from 'lucide-react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useTheme } from '@react-navigation/native';
 import { RootStackParamList } from '../../App';
-import { formatToDisplayDate } from '../utils/dateUtils';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
@@ -14,7 +13,7 @@ import AppText from '../components/AppText';
 // import AnimatedPressable from '../components/AnimatedPressable'; // Removed
 
 const HomeScreen: React.FC<Props> = ({ navigation }) => {
-  const { pantryItems, totalWaste, isDark, consumeItem } = usePantry();
+  const { pantryItems, totalWaste, isDark, consumeItem, getCookableRecipes } = usePantry();
   const { colors } = useTheme(); // Only colors are destructured from useTheme
 
   const handleQuickRestock = () => {
@@ -41,28 +40,30 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     return pantryItems.reduce((acc, item) => acc + item.price * item.quantity, 0);
   }, [pantryItems]);
 
+  const cookableRecipes = getCookableRecipes();
+
   // Define styles inside the component to access isDark and colors
   const styles = StyleSheet.create({
     container: { flex: 1 },
     statsContainer: { flexDirection: 'row', padding: 16, justifyContent: 'space-between', gap: 10, marginTop: 8 },
-    statCard: { flex: 1, padding: 16, borderRadius: 16, alignItems: 'center', borderWidth: 1, backgroundColor: colors.card, borderColor: colors.border },
+    statCard: { flex: 1, padding: 16, borderRadius: 16, alignItems: 'center', borderWidth: 1, backgroundColor: '#ffffff', borderColor: colors.border },
     statNumber: { fontSize: 20, marginVertical: 4, color: colors.text },
     statLabel: { fontSize: 11, color: '#64748b', textTransform: 'uppercase' },
     section: { paddingHorizontal: 16, marginBottom: 20 },
     sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
     sectionTitle: { fontSize: 13, color: '#64748b', textTransform: 'uppercase' },
-    expiringList: { borderRadius: 16, borderWidth: 1, backgroundColor: colors.card, borderColor: colors.border },
+    expiringList: { borderRadius: 16, borderWidth: 1, backgroundColor: '#ffffff', borderColor: colors.border },
     expiringItem: { padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: isDark ? '#1e293b' : '#f1f5f9' }, // Correctly using isDark
     expiringItemActions: { flexDirection: 'row', gap: 10, alignItems: 'center' },
     actionBtn: { padding: 5 },
     alertItemName: { fontSize: 15, color: colors.text },
     alertDate: { fontSize: 12, color: '#f59e0b', marginTop: 2 },
     quantity: { fontSize: 14, color: '#64748b' },
-    infoCard: { borderRadius: 16, borderWidth: 1, paddingHorizontal: 16, backgroundColor: colors.card, borderColor: colors.border },
+    infoCard: { borderRadius: 16, borderWidth: 1, paddingHorizontal: 16, backgroundColor: '#ffffff', borderColor: colors.border },
     infoRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
     infoLabel: { color: colors.text, fontSize: 14 },
     infoValue: { fontSize: 14 },
-    quickTip: { margin: 16, padding: 20, borderRadius: 16, borderLeftWidth: 4, borderLeftColor: '#3b82f6', backgroundColor: isDark ? 'rgba(59, 130, 246, 0.1)' : '#eff6ff' }, // Using isDark
+    quickTip: { paddingHorizontal: 16, marginBottom: 20, padding: 20, borderRadius: 16, borderLeftWidth: 4, borderLeftColor: '#3b82f6', backgroundColor: isDark ? 'rgba(59, 130, 246, 0.1)' : '#eff6ff' }, // Using isDark
     quickTipTitle: { marginBottom: 4 },
     quickTipText: { lineHeight: 20, fontSize: 13, color: isDark ? '#94a3b8' : '#475569' },
     emptyState: { padding: 40, alignItems: 'center', justifyContent: 'center' },
@@ -102,19 +103,18 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
       style={[styles.container, { backgroundColor: colors.background }]}
       contentContainerStyle={{ flexGrow: 1 }}
     >
-      <View style={{ flex: 1 }}>
         <View style={styles.statsContainer}>
-          <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={[styles.statCard, { backgroundColor: '#ffffff', borderColor: colors.border }]}>
             <PackageSearch size={22} color="#3b82f6" />
             <AppText weight="bold" style={[styles.statNumber, { color: colors.text }]}>{pantryItems.length}</AppText>
             <AppText weight="bold" style={styles.statLabel}>Total Items</AppText>
           </View>
-          <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={[styles.statCard, { backgroundColor: '#ffffff', borderColor: colors.border }]}>
             <TriangleAlert size={22} color="#ef4444" />
             <AppText weight="bold" style={[styles.statNumber, { color: '#ef4444' }]}>{lowStockItems}</AppText>
             <AppText weight="bold" style={styles.statLabel}>Low Stock</AppText>
           </View>
-          <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={[styles.statCard, { backgroundColor: '#ffffff', borderColor: colors.border }]}>
             <TrendingDown size={22} color="#64748b" />
             <AppText weight="bold" style={[styles.statNumber, { color: '#64748b' }]}>${totalWaste.toFixed(0)}</AppText>
             <AppText weight="bold" style={styles.statLabel}>Total Waste</AppText>
@@ -126,7 +126,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
             <Clock size={16} color="#f59e0b" />
             <AppText weight="bold" style={styles.sectionTitle}>Expiring Soon</AppText>
           </View>
-          <View style={[styles.expiringList, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={[styles.expiringList, { backgroundColor: '#ffffff', borderColor: colors.border }]}>
             {expiringSoon.length > 0 ? (
               expiringSoon.map((item, index) => (
                 <TouchableOpacity 
@@ -162,10 +162,36 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
+            <Clock size={16} color="#f59e0b" />
+            <AppText weight="bold" style={styles.sectionTitle}>Cookable Now</AppText>
+          </View>
+          <View style={[styles.expiringList, { backgroundColor: '#ffffff', borderColor: colors.border }]}>
+            {cookableRecipes.length > 0 ? (
+              cookableRecipes.map((recipe, index) => (
+                <TouchableOpacity 
+                  key={recipe.id} 
+                  style={[styles.expiringItem, { borderBottomColor: isDark ? '#1e293b' : '#f1f5f9' }, index === cookableRecipes.length - 1 && { borderBottomWidth: 0 }]}
+                  onPress={() => navigation.navigate('RecipeDetail', { recipeId: recipe.id! })}
+                >
+                  <AppText weight="bold" style={[styles.alertItemName, { color: colors.text }]}>{recipe.name}</AppText>
+                </TouchableOpacity>
+              ))
+            ) : (
+              <EmptyState 
+                icon={<BookOpen size={40} color="#3b82f6" />}
+                title="No Cookable Recipes"
+                description="Add recipes and pantry items to see what you can cook."
+              />
+            )}
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
             <DollarSign size={16} color="#64748b" />
             <AppText weight="bold" style={styles.sectionTitle}>Financial Summary</AppText>
           </View>
-          <View style={[styles.infoCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={[styles.infoCard, { backgroundColor: '#ffffff', borderColor: colors.border }]}>
             <View style={styles.infoRow}>
               <AppText weight="medium" style={[styles.infoLabel, { color: colors.text }]}>Total Inventory Value:</AppText>
               <AppText weight="bold" style={styles.infoValue}>
@@ -190,10 +216,9 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
 
         <View style={[styles.quickTip, { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.1)' : '#eff6ff' }]}>
           <AppText weight="bold" style={[styles.quickTipTitle, { color: isDark ? '#60a5fa' : '#1e40af' }]}>System Tip:</AppText>
-          <AppText style={[styles.quickTipText, { color: isDark ? '#94a3b8' : '#475569' }]}>Use the 'Meal Planner' to get recipe suggestions based on items you already have in your pantry.</AppText>
+          <AppText style={[styles.quickTipText, { color: isDark ? '#94a3b8' : '#475569' }]}>Use the &apos;Meal Planner&apos; to get recipe suggestions based on items you already have in your pantry.</AppText>
         </View>
-      </View>
-    </ScrollView>
+      </ScrollView>
   );
 };
 

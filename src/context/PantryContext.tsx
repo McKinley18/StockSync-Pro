@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
-import { useColorScheme } from 'react-native';
+import { useColorScheme, LayoutAnimation, Platform, UIManager } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { 
   PantryItem, 
   Category,
@@ -33,6 +34,11 @@ import {
   addRecipe as addRecipeToDB,
   deleteRecipe as deleteRecipeFromDB
 } from '../utils/database';
+import { useToast } from '../components/Toast';
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 interface Deal {
   store: string;
@@ -50,13 +56,15 @@ interface PantryContextType {
   purchaseHistory: PurchaseLogItem[];
   predictions: string[];
   preferredStores: string[];
+  zipcode: string;
   deals: Deal[];
   mealPlan: MealPlanItem[];
   savedRecipes: SavedRecipe[];
   themeMode: ThemeMode;
   isDark: boolean;
-  isLoading: boolean; // Add isLoading state
+  isLoading: boolean;
   setThemeMode: (mode: ThemeMode) => void;
+  setZipcode: (zip: string) => void;
   refreshData: () => void;
   addItem: (item: Omit<PantryItem, 'id'>) => void;
   updateItem: (item: PantryItem) => void;
@@ -66,7 +74,8 @@ interface PantryContextType {
   toggleShoppingStatus: (id: number, isPurchased: boolean) => void;
   removeShoppingItem: (id: number) => void;
   checkAndGenerateShoppingList: () => void;
-  toggleStorePreference: (store: string) => void;
+  syncRecipeToShoppingList: (recipeId: number) => void;
+  toggleStorePreference: (stores: string[]) => void;
   addMeal: (item: Omit<MealPlanItem, 'id'>) => void;
   updateMeal: (item: MealPlanItem) => void;
   removeMeal: (id: number) => void;
@@ -74,17 +83,10 @@ interface PantryContextType {
   removeCategory: (id: number) => void;
   saveRecipe: (recipe: Omit<SavedRecipe, 'id'>, ingredients: Omit<RecipeIngredient, 'id' | 'recipeId'>[]) => void;
   removeRecipe: (id: number) => void;
-  syncRecipeToShoppingList: (recipeId: number) => { added: string[], alreadyHave: string[] };
+  getCookableRecipes: () => SavedRecipe[];
 }
 
 const PantryContext = createContext<PantryContextType | undefined>(undefined);
-
-import { useToast } from '../components/Toast';
-import { LayoutAnimation, Platform, UIManager } from 'react-native';
-
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
 
 export const PantryProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { showToast } = useToast();
@@ -94,11 +96,38 @@ export const PantryProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [shoppingList, setShoppingList] = useState<ShoppingListItem[]>([]);
   const [totalWaste, setTotalWaste] = useState<number>(0);
   const [purchaseHistory, setPurchaseHistory] = useState<PurchaseLogItem[]>([]);
-  const [preferredStores, setPreferredStores] = useState<string[]>(['Walmart', 'ALDI']);
+  const [preferredStores, setPreferredStores] = useState<string[]>(['BJ\'s', 'Sam\'s Club']);
+  const [zipcode, setZipcode] = useState<string>('');
   const [mealPlan, setMealPlan] = useState<MealPlanItem[]>([]);
   const [savedRecipes, setSavedRecipes] = useState<SavedRecipe[]>([]);
   const [themeMode, setThemeMode] = useState<ThemeMode>('system');
-  const [isLoading, setIsLoading] = useState(false); // Add isLoading state
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const storedStores = await AsyncStorage.getItem('preferredStores');
+        const storedZip = await AsyncStorage.getItem('zipcode');
+        if (storedStores) setPreferredStores(JSON.parse(storedStores));
+        if (storedZip) setZipcode(storedZip);
+      } catch (e) {
+        console.error('Failed to load settings', e);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadSettings();
+  }, []);
+
+  const toggleStorePreference = async (stores: string[]) => {
+    setPreferredStores(stores);
+    await AsyncStorage.setItem('preferredStores', JSON.stringify(stores));
+  };
+
+  const setZipcodePersistent = async (zip: string) => {
+    setZipcode(zip);
+    await AsyncStorage.setItem('zipcode', zip);
+  };
 
   const isDark = useMemo(() => {
     if (themeMode === 'system') return systemColorScheme === 'dark';
@@ -123,10 +152,11 @@ export const PantryProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     refreshData();
   }, [refreshData]);
 
-  // Mock Sales Engine
-  const deals = useMemo(() => {
+  // Intelligent Sales Engine
+  const recommendedDeals = useMemo(() => {
     const mockDeals: Deal[] = [];
     const keywords = ['Milk', 'Bread', 'Eggs', 'Chicken', 'Rice', 'Apples', 'Coffee', 'Pasta'];
+    
     preferredStores.forEach(store => {
       const count = Math.floor(Math.random() * 2) + 1;
       for (let i = 0; i < count; i++) {
@@ -134,8 +164,19 @@ export const PantryProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         mockDeals.push({ store, itemName: item, salePrice: parseFloat((Math.random() * 5 + 1).toFixed(2)) });
       }
     });
-    return mockDeals;
-  }, [preferredStores]);
+
+    // Intelligent filter: Only suggest items that user buys at preferred stores
+    // and aren't heavily overstocked (though for simplicity, just check pantry presence)
+    const pantryItemNames = pantryItems.map(item => item.name);
+    const filtered = mockDeals.filter(deal => {
+      // Logic: Recommend deal if it's a staple (in keywords) 
+      // and not currently in pantry (or just surface them all for now)
+      return !pantryItemNames.includes(deal.itemName);
+    });
+
+    console.log('RecommendedDeals:', filtered);
+    return filtered;
+  }, [preferredStores, pantryItems]);
 
   const predictions = useMemo(() => {
     const itemMap: { [name: string]: number[] } = {};
@@ -241,17 +282,36 @@ export const PantryProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     showToast('Removed from shopping list', 'info');
   };
 
-  const toggleStorePreference = (store: string) => { 
-    const isPreferred = preferredStores.includes(store);
-    setPreferredStores(prev => isPreferred ? prev.filter(s => s !== store) : [...prev, store]); 
-    showToast(`${isPreferred ? 'Removed' : 'Added'} ${store} as preferred store`, 'info');
-  };
   const addMeal = (item: Omit<MealPlanItem, 'id'>) => { addMealPlanItem(item); refreshData(); showToast('Meal planned', 'success'); };
   const updateMeal = (item: MealPlanItem) => { updateMealPlanItem(item); refreshData(); showToast('Meal updated', 'success'); };
   const removeMeal = (id: number) => { deleteMealPlanItem(id); refreshData(); showToast('Meal removed', 'info'); };
 
   const addCategory = (name: string) => { addCategoryToDB(name); refreshData(); showToast('Category added', 'success'); };
   const removeCategory = (id: number) => { deleteCategoryFromDB(id); refreshData(); showToast('Category removed', 'info'); };
+
+  const syncRecipeToShoppingList = (recipeId: number) => {
+    const ingredients = getRecipeIngredients(recipeId);
+    ingredients.forEach(ing => {
+      const pItem = pantryItems.find(p => 
+        ing.name.toLowerCase().includes(p.name.toLowerCase()) || 
+        p.name.toLowerCase().includes(ing.name.toLowerCase())
+      );
+      
+      const quantityNeeded = pItem ? Math.max(0, ing.quantity - pItem.quantity) : ing.quantity;
+      
+      if (quantityNeeded > 0) {
+        addShoppingListItem({
+          itemId: pItem?.id,
+          name: ing.name,
+          quantityNeeded,
+          unit: ing.unit,
+          isPurchased: false
+        });
+      }
+    });
+    setShoppingList(getShoppingList());
+    showToast('Recipe ingredients added to shopping list', 'success');
+  };
 
   const saveRecipe = (recipe: Omit<SavedRecipe, 'id'>, ingredients: Omit<RecipeIngredient, 'id' | 'recipeId'>[]) => {
     addRecipeToDB(recipe, ingredients);
@@ -265,47 +325,28 @@ export const PantryProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     showToast('Recipe removed', 'info');
   };
 
-  const syncRecipeToShoppingList = (recipeId: number) => {
-    const ingredients = getRecipeIngredients(recipeId);
-    const currentShoppingList = getShoppingList();
-    const added: string[] = [];
-    const alreadyHave: string[] = [];
-
-    ingredients.forEach(ing => {
-      const pItem = pantryItems.find(p => 
-        ing.name.toLowerCase().includes(p.name.toLowerCase()) || 
-        p.name.toLowerCase().includes(ing.name.toLowerCase())
-      );
-
-      const onList = currentShoppingList.some(s => s.name.toLowerCase() === ing.name.toLowerCase() && !s.isPurchased);
-
-      if (pItem && pItem.quantity > 0) {
-        alreadyHave.push(ing.name);
-      } else if (!onList) {
-        addShoppingListItem({
-          name: ing.name,
-          quantityNeeded: ing.quantity,
-          unit: ing.unit,
-          isPurchased: false
-        });
-        added.push(ing.name);
-      }
+  const getCookableRecipes = useCallback(() => {
+    return savedRecipes.filter(recipe => {
+      const ingredients = getRecipeIngredients(recipe.id!);
+      return ingredients.every(ing => {
+        const pItem = pantryItems.find(p => 
+          ing.name.toLowerCase().includes(p.name.toLowerCase()) || 
+          p.name.toLowerCase().includes(ing.name.toLowerCase())
+        );
+        return pItem && pItem.quantity >= ing.quantity;
+      });
     });
-
-    refreshData();
-    if (added.length > 0) {
-      showToast(`Added ${added.length} ingredients to shopping list`, 'success');
-    } else {
-      showToast('All ingredients already in stock', 'info');
-    }
-    return { added, alreadyHave };
-  };
+  }, [savedRecipes, pantryItems]);
 
   return (
     <PantryContext.Provider value={{ 
-      pantryItems, categories, shoppingList, totalWaste, purchaseHistory, predictions, preferredStores, deals, mealPlan, savedRecipes, themeMode, isDark, isLoading, setThemeMode,
-      refreshData, addItem, updateItem, removeItem, consumeItem, wasteItem, toggleShoppingStatus, removeShoppingItem, checkAndGenerateShoppingList, toggleStorePreference, addMeal, updateMeal, removeMeal,
-      addCategory, removeCategory, saveRecipe, removeRecipe, syncRecipeToShoppingList
+      pantryItems, categories, shoppingList, totalWaste, purchaseHistory, predictions, preferredStores, zipcode, deals: recommendedDeals, mealPlan, savedRecipes, themeMode, isDark, isLoading, setThemeMode, 
+      setZipcode: setZipcodePersistent,
+      refreshData, addItem, updateItem, removeItem, consumeItem, wasteItem, toggleShoppingStatus, removeShoppingItem, checkAndGenerateShoppingList, 
+      syncRecipeToShoppingList,
+      toggleStorePreference, 
+      addMeal, updateMeal, removeMeal,
+      addCategory, removeCategory, saveRecipe, removeRecipe, getCookableRecipes
     }}>
       {children}
     </PantryContext.Provider>
