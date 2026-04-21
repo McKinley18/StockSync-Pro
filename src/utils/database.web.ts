@@ -1,3 +1,4 @@
+// StockSync Audit Date: 2026-04-20
 export interface PantryItem {
   id?: number;
   name: string;
@@ -59,6 +60,18 @@ export interface RecipeIngredient {
   unit: string;
 }
 
+const forge = require('node-forge');
+
+export const hashString = (text: string) => {
+  const md = forge.md.sha256.create();
+  md.update(text);
+  return md.digest().toHex();
+};
+
+export const hashPassword = (password: string) => {
+  return hashString(password);
+};
+
 export interface UserProfile {
   id?: number;
   firstName?: string;
@@ -70,6 +83,7 @@ export interface UserProfile {
   liability_accepted: number;
   preferred_store?: string;
   frequent_items: string;
+  password_hash?: string;
 }
 
 export const CATEGORIES = [
@@ -77,7 +91,7 @@ export const CATEGORIES = [
 ];
 
 export const UNITS = [
-  'items', 'lbs', 'oz', 'kg', 'g', 'ml', 'liters', 'cartons', 'bags', 'boxes'
+  'items', 'lbs', 'oz', 'kg', 'g', 'ml', 'liters', 'cartons', 'bags', 'boxes', 'tsp', 'tbsp', 'cup', 'pint', 'quart', 'gallon'
 ];
 
 // Helper to persist data to localStorage
@@ -104,7 +118,7 @@ let mealPlan: MealPlanItem[] = loadFromStorage('mealplan', []);
 let categories: Category[] = loadFromStorage('categories', CATEGORIES.map((n, i) => ({ id: i + 1, name: n })));
 let savedRecipes: SavedRecipe[] = loadFromStorage('recipes', []);
 let recipeIngredients: RecipeIngredient[] = loadFromStorage('ingredients', []);
-let userProfile: UserProfile = loadFromStorage('userProfile', { firstName: '', lastName: '', email: '', zipCode: '', allergies: '', dislikes: '', liability_accepted: 0, frequent_items: '' });
+let userProfile: UserProfile = loadFromStorage('userProfile', { firstName: '', lastName: '', email: '', zipCode: '', allergies: '', dislikes: '', liability_accepted: 0, frequent_items: '', password_hash: '' });
 
 let nextId: number = loadFromStorage('nextId', 1); // Centralized ID counter
 
@@ -154,9 +168,35 @@ export const initDatabase = () => {
 // User Profile
 export const getUserProfile = (): UserProfile => userProfile;
 
-export const saveUserProfile = (profile: UserProfile) => {
-  userProfile = { ...userProfile, ...profile };
+export const saveUserProfile = (profile: any) => {
+  const { password, ...rest } = profile;
+  const updates: any = { ...rest };
+  if (password) {
+    updates.password_hash = hashPassword(password);
+  }
+  userProfile = { ...userProfile, ...updates };
   saveToStorage('userProfile', userProfile);
+};
+
+export const createAccount = (userData: any) => {
+  const hashedPassword = hashPassword(userData.password);
+  userProfile = {
+    ...userProfile,
+    firstName: userData.firstName,
+    lastName: userData.lastName,
+    email: userData.email,
+    zipCode: userData.zipCode,
+    password_hash: hashedPassword,
+    liability_accepted: 0
+  };
+  saveToStorage('userProfile', userProfile);
+};
+
+export const verifyLogin = (email: string, password: string) => {
+  if (userProfile.email === email && userProfile.password_hash === hashPassword(password)) {
+    return userProfile;
+  }
+  return null;
 };
 
 export const updateUserProfile = saveUserProfile;
@@ -164,6 +204,16 @@ export const updateUserProfile = saveUserProfile;
 export const updateLiabilityStatus = (accepted: boolean) => {
   userProfile.liability_accepted = accepted ? 1 : 0;
   saveToStorage('userProfile', userProfile);
+};
+
+export const updatePassword = (email: string, newPassword: string) => {
+  const hashedPassword = hashPassword(newPassword);
+  if (userProfile.email === email) {
+    userProfile.password_hash = hashedPassword;
+    saveToStorage('userProfile', userProfile);
+    return { changes: 1 };
+  }
+  return { changes: 0 };
 };
 
 // Category CRUD

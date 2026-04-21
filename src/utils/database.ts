@@ -1,5 +1,16 @@
 // StockSync Audit Date: 2026-04-20
 import { Platform } from 'react-native';
+const forge = require('node-forge');
+
+export const hashString = (text: string) => {
+  const md = forge.md.sha256.create();
+  md.update(text);
+  return md.digest().toHex();
+};
+
+const hashPassword = (password: string) => {
+  return hashString(password);
+};
 
 // Dynamically export based on platform to ensure Web uses the Mock and Native uses SQLite
 let databaseModule: any;
@@ -29,7 +40,7 @@ if (Platform.OS === 'web') {
         CREATE TABLE IF NOT EXISTS meal_plan (id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT NOT NULL, mealType TEXT NOT NULL, name TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS saved_recipes (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, instructions TEXT, category TEXT);
         CREATE TABLE IF NOT EXISTS recipe_ingredients (id INTEGER PRIMARY KEY AUTOINCREMENT, recipeId INTEGER NOT NULL, name TEXT NOT NULL, quantity REAL NOT NULL, unit TEXT NOT NULL, FOREIGN KEY (recipeId) REFERENCES saved_recipes (id));
-        CREATE TABLE IF NOT EXISTS user_profiles (id INTEGER PRIMARY KEY AUTOINCREMENT, firstName TEXT, lastName TEXT, email TEXT, zipCode TEXT, allergies TEXT, dislikes TEXT, liability_accepted INTEGER DEFAULT 0, preferred_store TEXT, frequent_items TEXT);
+        CREATE TABLE IF NOT EXISTS user_profiles (id INTEGER PRIMARY KEY AUTOINCREMENT, firstName TEXT, lastName TEXT, email TEXT, zipCode TEXT, allergies TEXT, dislikes TEXT, liability_accepted INTEGER DEFAULT 0, preferred_store TEXT, frequent_items TEXT, password_hash TEXT);
       `);
       
       const countRes = db.getFirstSync('SELECT COUNT(*) as count FROM categories');
@@ -47,7 +58,8 @@ if (Platform.OS === 'web') {
         "ALTER TABLE user_profiles ADD COLUMN firstName TEXT;",
         "ALTER TABLE user_profiles ADD COLUMN lastName TEXT;",
         "ALTER TABLE user_profiles ADD COLUMN email TEXT;",
-        "ALTER TABLE user_profiles ADD COLUMN zipCode TEXT;"
+        "ALTER TABLE user_profiles ADD COLUMN zipCode TEXT;",
+        "ALTER TABLE user_profiles ADD COLUMN password_hash TEXT;"
       ];
       migrations.forEach(m => { try { db.execSync(m); } catch (e) {} });
     },
@@ -93,11 +105,47 @@ if (Platform.OS === 'web') {
     getUserProfile: () => db.getFirstSync('SELECT * FROM user_profiles LIMIT 1'),
     saveUserProfile: (profile: any) => {
       const existing = db.getFirstSync('SELECT * FROM user_profiles LIMIT 1');
+      const passwordHash = profile.password ? hashPassword(profile.password) : (profile.password_hash || (existing ? existing.password_hash : null));
+      
       if (existing) {
-        db.runSync('UPDATE user_profiles SET firstName = ?, lastName = ?, email = ?, zipCode = ?, allergies = ?, dislikes = ?, liability_accepted = ?, preferred_store = ?, frequent_items = ? WHERE id = ?', [profile.firstName, profile.lastName, profile.email, profile.zipCode, profile.allergies, profile.dislikes, profile.liability_accepted ? 1 : 0, profile.preferred_store, profile.frequent_items, existing.id]);
+        db.runSync('UPDATE user_profiles SET firstName = ?, lastName = ?, email = ?, zipCode = ?, allergies = ?, dislikes = ?, liability_accepted = ?, preferred_store = ?, frequent_items = ?, password_hash = ? WHERE id = ?', [
+          profile.firstName ?? existing.firstName, 
+          profile.lastName ?? existing.lastName, 
+          profile.email ?? existing.email, 
+          profile.zipCode ?? existing.zipCode, 
+          profile.allergies ?? existing.allergies, 
+          profile.dislikes ?? existing.dislikes, 
+          (profile.liability_accepted !== undefined ? (profile.liability_accepted ? 1 : 0) : existing.liability_accepted), 
+          profile.preferred_store ?? existing.preferred_store, 
+          profile.frequent_items ?? existing.frequent_items, 
+          passwordHash,
+          existing.id
+        ]);
       } else {
-        db.runSync('INSERT INTO user_profiles (firstName, lastName, email, zipCode, allergies, dislikes, liability_accepted, preferred_store, frequent_items) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [profile.firstName, profile.lastName, profile.email, profile.zipCode, profile.allergies, profile.dislikes, profile.liability_accepted ? 1 : 0, profile.preferred_store, profile.frequent_items]);
+        db.runSync('INSERT INTO user_profiles (firstName, lastName, email, zipCode, allergies, dislikes, liability_accepted, preferred_store, frequent_items, password_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [
+          profile.firstName || '', 
+          profile.lastName || '', 
+          profile.email || '', 
+          profile.zipCode || '', 
+          profile.allergies || '', 
+          profile.dislikes || '', 
+          profile.liability_accepted ? 1 : 0, 
+          profile.preferred_store || '', 
+          profile.frequent_items || '', 
+          passwordHash || ''
+        ]);
       }
+    },
+    createAccount: (userData: any) => {
+      const hashedPassword = hashPassword(userData.password);
+      db.runSync('INSERT INTO user_profiles (firstName, lastName, email, zipCode, password_hash, liability_accepted, allergies, dislikes, frequent_items) VALUES (?, ?, ?, ?, ?, 0, \'\', \'\', \'\')', [userData.firstName, userData.lastName, userData.email, userData.zipCode, hashedPassword]);
+    },
+    verifyLogin: (email: string, password: string) => {
+      const user = db.getFirstSync('SELECT * FROM user_profiles WHERE email = ?', [email]);
+      if (user && user.password_hash === hashPassword(password)) {
+        return user;
+      }
+      return null;
     },
     updateLiabilityStatus: (accepted: boolean) => {
       const existing = db.getFirstSync('SELECT * FROM user_profiles LIMIT 1');
@@ -106,7 +154,15 @@ if (Platform.OS === 'web') {
       } else {
         db.runSync('INSERT INTO user_profiles (firstName, lastName, email, zipCode, allergies, dislikes, liability_accepted, preferred_store, frequent_items) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', ['', '', '', '', '', '', accepted ? 1 : 0, '', '']);
       }
-    }
+    },
+    updateUserProfile: (profile: any) => {
+      return databaseModule.saveUserProfile(profile);
+    },
+    updatePassword: (email: string, newPassword: string) => {
+      const hashedPassword = hashPassword(newPassword);
+      return db.runSync('UPDATE user_profiles SET password_hash = ? WHERE email = ?', [hashedPassword, email]);
+    },
+    hashPassword: (password: string) => hashPassword(password)
   };
 }
 
@@ -140,11 +196,16 @@ export const addRecipe = databaseModule.addRecipe;
 export const deleteRecipe = databaseModule.deleteRecipe;
 export const getUserProfile = databaseModule.getUserProfile;
 export const saveUserProfile = databaseModule.saveUserProfile;
-export const updateUserProfile = saveUserProfile;
+export const createAccount = databaseModule.createAccount;
+export const verifyLogin = databaseModule.verifyLogin;
+export const updateUserProfile = databaseModule.saveUserProfile;
 export const updateLiabilityStatus = databaseModule.updateLiabilityStatus;
+export const updatePassword = databaseModule.updatePassword;
+export const hashPassword = databaseModule.hashPassword;
 
 export interface PantryItem { id?: number; name: string; barcode?: string; quantity: number; unit: string; threshold: number; price: number; category: string; expirationDate?: string; }
-export interface UserProfile { id?: number; firstName?: string; lastName?: string; email?: string; zipCode?: string; allergies: string; dislikes: string; liability_accepted: number; preferred_store?: string; frequent_items: string; }
+export interface UserProfile { id?: number; firstName?: string; lastName?: string; email?: string; zipCode?: string; allergies: string; dislikes: string; liability_accepted: number; preferred_store?: string; frequent_items: string; password_hash?: string; }
+
 export interface Category { id?: number; name: string; }
 export interface ShoppingListItem { id?: number; itemId?: number; name: string; quantityNeeded: number; unit: string; isPurchased: boolean; }
 export interface WasteLogItem { id?: number; name: string; price: number; dateWasted: string; }

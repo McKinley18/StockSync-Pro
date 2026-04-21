@@ -40,11 +40,14 @@ import CategoryManagementScreen from './src/screens/CategoryManagementScreen';
 import StoreManagementScreen from './src/screens/StoreManagementScreen';
 import OnboardingScreen from './src/screens/OnboardingScreen';
 import LocationSettingsScreen from './src/screens/LocationSettingsScreen';
+import LoginScreen from './src/screens/LoginScreen';
+import RecoveryScreen from './src/screens/RecoveryScreen';
 
 // Components
 import ErrorBoundary from './src/components/ErrorBoundary';
 import AppText from './src/components/AppText';
 import LoadingOverlay from './src/components/LoadingOverlay';
+import * as LocalAuthentication from 'expo-local-authentication';
 
 const Drawer = createDrawerNavigator();
 
@@ -59,6 +62,7 @@ export type RootStackParamList = {
   Settings: undefined;
   ProfileSettings: undefined;
   LocationSettings: undefined;
+  Recovery: undefined;
   Categories: undefined;
   Stores: undefined;
   RecipeBook: undefined;
@@ -182,10 +186,56 @@ const CustomDrawerContent = (props: any) => {
 
 const PantryAppContent = () => {
   const { isLoading } = usePantry();
-  const { profile } = useProfile();
+  const { profile, loading: profileLoading } = useProfile();
+  const [isLoggedIn, setIsLoggedIn] = React.useState(false);
+  const [showSignup, setShowSignup] = React.useState(false);
 
-  if (!profile || !profile.liability_accepted) {
-    return <OnboardingScreen />;
+  React.useEffect(() => {
+    // Check for stored session or attempt biometric login on mount
+    const checkBiometric = async () => {
+      if (profile && profile.email && !isLoggedIn) {
+        const hasHardware = await LocalAuthentication.hasHardwareAsync();
+        const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+        
+        if (hasHardware && isEnrolled) {
+          const result = await LocalAuthentication.authenticateAsync({
+            promptMessage: 'Login with Biometrics',
+          });
+          if (result.success) {
+            setIsLoggedIn(true);
+          }
+        }
+      }
+    };
+    
+    if (!profileLoading) {
+      checkBiometric();
+    }
+  }, [profile, profileLoading, isLoggedIn]);
+
+  if (profileLoading) {
+    return <LoadingOverlay isLoading={true} />;
+  }
+
+  // Auth flow logic
+  if (!isLoggedIn && !showSignup) {
+    return (
+      <LoginScreen 
+        onLoginSuccess={() => setIsLoggedIn(true)} 
+        onNavigateToSignup={() => setShowSignup(true)} 
+      />
+    );
+  }
+
+  if (showSignup || !profile || !profile.liability_accepted) {
+    return (
+      <OnboardingScreen 
+        onComplete={() => {
+          setShowSignup(false);
+          setIsLoggedIn(true);
+        }}
+      />
+    );
   }
 
   return (
@@ -328,6 +378,13 @@ function NavigationRoot() {
         <Drawer.Screen
           name="Stores"
           component={StoreManagementScreen}
+          options={{
+            drawerItemStyle: { height: 0 }
+          }}
+        />
+        <Drawer.Screen
+          name="Recovery"
+          component={RecoveryScreen}
           options={{
             drawerItemStyle: { height: 0 }
           }}
