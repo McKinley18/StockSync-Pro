@@ -202,6 +202,7 @@ export const updateUserProfile = databaseModule.saveUserProfile;
 export const updateLiabilityStatus = databaseModule.updateLiabilityStatus;
 export const updatePassword = databaseModule.updatePassword;
 export const hashPassword = databaseModule.hashPassword;
+export { hashString };
 
 export interface PantryItem { id?: number; name: string; barcode?: string; quantity: number; unit: string; threshold: number; price: number; category: string; expirationDate?: string; }
 export interface UserProfile { id?: number; firstName?: string; lastName?: string; email?: string; zipCode?: string; allergies: string; dislikes: string; liability_accepted: number; preferred_store?: string; frequent_items: string; password_hash?: string; }
