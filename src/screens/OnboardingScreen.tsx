@@ -4,7 +4,7 @@ import { CheckCircle, Circle, X, Copy } from 'lucide-react-native';
 import { Picker } from '@react-native-picker/picker';
 import * as Clipboard from 'expo-clipboard';
 import { useProfile } from '../context/ProfileContext';
-import { setSecureItem, updateUserProfile, hashString, createAccount } from "../utils/database";
+import * as DB from '../utils/database';
 import AppText from '../components/AppText';
 
 interface OnboardingScreenProps {
@@ -33,15 +33,8 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
   const [answer1, setAnswer1] = useState('');
   const [question2, setQuestion2] = useState(SECURITY_QUESTIONS[1]);
   const [answer2, setAnswer2] = useState('');
-  const [recoveryCode, setRecoveryCode] = useState('');
-  const [showRecoveryModal, setShowRecoveryModal] = useState(false);
   const [agreementAccepted, setAgreementAccepted] = useState(false);
   const [isAgreementVisible, setIsAgreementVisible] = useState(false);
-
-  const generateRecoveryCode = () => {
-    return Math.random().toString(36).substring(2, 8).toUpperCase() + 
-           Math.random().toString(36).substring(2, 8).toUpperCase();
-  };
 
   const validatePassword = (pass: string) => {
     const hasNumber = /[0-9]/.test(pass);
@@ -68,20 +61,17 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
   const handleFinish = async () => {
     if (isFormValid) {
       try {
-        const code = generateRecoveryCode();
-        setRecoveryCode(code);
+        const hashedA1 = DB.hashString(answer1.toLowerCase().trim());
+        const hashedA2 = DB.hashString(answer2.toLowerCase().trim());
         
-        const hashedA1 = hashString(answer1.toLowerCase().trim());
-        const hashedA2 = hashString(answer2.toLowerCase().trim());
-        
-        await setSecureItem('recovery_q1', question1);
-        await setSecureItem('recovery_a1', hashedA1);
-        await setSecureItem('recovery_q2', question2);
-        await setSecureItem('recovery_a2', hashedA2);
-        await setSecureItem('recovery_code', code);
+        await DB.setSecureItem('recovery_q1', question1);
+        await DB.setSecureItem('recovery_a1', hashedA1);
+        await DB.setSecureItem('recovery_q2', question2);
+        await DB.setSecureItem('recovery_a2', hashedA2);
+        await DB.setSecureItem('auth_token', 'true');
 
         // Create account with password hash
-        createAccount({
+        DB.createAccount({
           firstName,
           lastName,
           email,
@@ -103,28 +93,18 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
         };
         
         // Ensure database is updated explicitly for verification
-        updateUserProfile(newProfile);
+        DB.updateUserProfile(newProfile);
         
         // Update profile in context to complete onboarding and refresh UI
         updateProfile(newProfile);
         
-        setShowRecoveryModal(true);
+        if (onComplete) {
+          onComplete();
+        }
       } catch (error) {
         console.error('Failed to create account or update profile:', error);
       }
     }
-  };
-
-  const handleRecoveryModalClose = () => {
-    setShowRecoveryModal(false);
-    if (onComplete) {
-      onComplete();
-    }
-  };
-
-  const copyToClipboard = async () => {
-    await Clipboard.setStringAsync(recoveryCode);
-    Alert.alert('Success', 'Recovery code copied to clipboard!');
   };
 
   return (
@@ -313,38 +293,6 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
           </View>
         </View>
       </Modal>
-
-      <Modal
-        animationType="fade"
-        transparent={true}
-        visible={showRecoveryModal}
-        onRequestClose={handleRecoveryModalClose}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.header}>
-              <CheckCircle size={48} color="#10b981" />
-              <AppText weight="bold" style={styles.title}>Account Secured!</AppText>
-              <AppText style={styles.subtitle}>Please save your recovery code in a safe place. You will need it if you forget your password.</AppText>
-            </View>
-
-            <View style={styles.recoveryCodeContainer}>
-              <AppText weight="bold" style={styles.recoveryCode}>{recoveryCode}</AppText>
-              <TouchableOpacity style={styles.copyButton} onPress={copyToClipboard}>
-                <Copy size={20} color="#3b82f6" />
-                <AppText weight="medium" style={styles.copyButtonText}>Copy</AppText>
-              </TouchableOpacity>
-            </View>
-
-            <TouchableOpacity 
-              style={styles.modalCloseButton}
-              onPress={handleRecoveryModalClose}
-            >
-              <AppText weight="bold" style={styles.modalCloseButtonText}>I&apos;ve saved my code</AppText>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -501,37 +449,6 @@ const styles = StyleSheet.create({
   modalCloseButtonText: {
     color: '#fff',
     fontSize: 16,
-  },
-  recoveryCodeContainer: {
-    backgroundColor: '#f1f5f9',
-    borderRadius: 12,
-    padding: 24,
-    alignItems: 'center',
-    marginBottom: 24,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderStyle: 'dashed',
-  },
-  recoveryCode: {
-    fontSize: 24,
-    color: '#0f172a',
-    letterSpacing: 2,
-    marginBottom: 16,
-  },
-  copyButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#3b82f6',
-    gap: 8,
-  },
-  copyButtonText: {
-    color: '#3b82f6',
-    fontSize: 14,
   }
 });
 

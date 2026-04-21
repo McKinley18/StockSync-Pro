@@ -10,6 +10,7 @@ import { ToastProvider } from './src/components/Toast';
 import { PantryProvider, usePantry } from './src/context/PantryContext'; 
 import { ProfileProvider, useProfile } from './src/context/ProfileContext';
 import * as Font from 'expo-font';
+import * as DB from './src/utils/database';
 
 // Icons
 import { 
@@ -189,6 +190,16 @@ const PantryAppContent = () => {
   const { profile, loading: profileLoading } = useProfile();
   const [isLoggedIn, setIsLoggedIn] = React.useState(false);
   const [showSignup, setShowSignup] = React.useState(false);
+
+  React.useEffect(() => {
+    const checkAuthToken = async () => {
+      const token = await DB.getSecureItem('auth_token');
+      if (token === 'true') {
+        setIsLoggedIn(true);
+      }
+    };
+    checkAuthToken();
+  }, []);
 
   React.useEffect(() => {
     // Check for stored session or attempt biometric login on mount
