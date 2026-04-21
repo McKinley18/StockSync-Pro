@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, TextInput, TouchableOpacity, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Modal, Alert } from 'react-native';
 import { CheckCircle, Circle, X, Copy } from 'lucide-react-native';
+import { Picker } from '@react-native-picker/picker';
 import * as SecureStore from 'expo-secure-store';
 import * as Clipboard from 'expo-clipboard';
 import { useProfile } from '../context/ProfileContext';
@@ -11,6 +12,17 @@ interface OnboardingScreenProps {
   onComplete?: () => void;
 }
 
+const SECURITY_QUESTIONS = [
+  "What was the name of your first pet?",
+  "What is your mother's maiden name?",
+  "What was the name of your elementary school?",
+  "In what city were you born?",
+  "What was the make and model of your first car?",
+  "What is your favorite book or movie?",
+  "What was the name of the street you grew up on?",
+  "What was the name of your first boss?",
+];
+
 export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
   const { updateProfile, profile } = useProfile();
   const [firstName, setFirstName] = useState('');
@@ -18,7 +30,9 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [zipCode, setZipCode] = useState('');
+  const [question1, setQuestion1] = useState(SECURITY_QUESTIONS[0]);
   const [answer1, setAnswer1] = useState('');
+  const [question2, setQuestion2] = useState(SECURITY_QUESTIONS[1]);
   const [answer2, setAnswer2] = useState('');
   const [recoveryCode, setRecoveryCode] = useState('');
   const [showRecoveryModal, setShowRecoveryModal] = useState(false);
@@ -45,8 +59,11 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
                       isPasswordValid && 
                       zipCode.trim().length === 5 &&
                       /^\d+$/.test(zipCode) &&
+                      question1 !== '' &&
                       answer1.trim() !== '' &&
+                      question2 !== '' &&
                       answer2.trim() !== '' &&
+                      question1 !== question2 &&
                       agreementAccepted;
 
   const handleFinish = async () => {
@@ -58,9 +75,9 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
         const hashedA1 = hashString(answer1.toLowerCase().trim());
         const hashedA2 = hashString(answer2.toLowerCase().trim());
         
-        await SecureStore.setItemAsync('recovery_q1', "What is your mother's maiden name?");
+        await SecureStore.setItemAsync('recovery_q1', question1);
         await SecureStore.setItemAsync('recovery_a1', hashedA1);
-        await SecureStore.setItemAsync('recovery_q2', "What was the name of your first pet?");
+        await SecureStore.setItemAsync('recovery_q2', question2);
         await SecureStore.setItemAsync('recovery_a2', hashedA2);
         await SecureStore.setItemAsync('recovery_code', code);
 
@@ -181,7 +198,18 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
 
           <AppText weight="bold" style={[styles.label, { marginTop: 10 }]}>Security Questions</AppText>
           
-          <AppText weight="medium" style={styles.label}>Q1: What is your mother&apos;s maiden name?</AppText>
+          <AppText weight="medium" style={styles.label}>Security Question 1</AppText>
+          <View style={styles.pickerContainer}>
+            <Picker
+              selectedValue={question1}
+              onValueChange={(itemValue) => setQuestion1(itemValue)}
+              style={styles.picker}
+            >
+              {SECURITY_QUESTIONS.map((q, index) => (
+                <Picker.Item key={index} label={q} value={q} />
+              ))}
+            </Picker>
+          </View>
           <TextInput 
             style={styles.input} 
             value={answer1} 
@@ -190,7 +218,18 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
             placeholderTextColor="#94a3b8"
           />
 
-          <AppText weight="medium" style={styles.label}>Q2: What was the name of your first pet?</AppText>
+          <AppText weight="medium" style={styles.label}>Security Question 2</AppText>
+          <View style={styles.pickerContainer}>
+            <Picker
+              selectedValue={question2}
+              onValueChange={(itemValue) => setQuestion2(itemValue)}
+              style={styles.picker}
+            >
+              {SECURITY_QUESTIONS.map((q, index) => (
+                <Picker.Item key={index} label={q} value={q} />
+              ))}
+            </Picker>
+          </View>
           <TextInput 
             style={styles.input} 
             value={answer2} 
@@ -198,6 +237,9 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
             placeholder="Answer 2"
             placeholderTextColor="#94a3b8"
           />
+          {question1 === question2 && (
+            <AppText style={styles.errorText}>Please choose two different security questions.</AppText>
+          )}
           
           <View style={styles.checkboxWrapper}>
             <TouchableOpacity 
@@ -355,6 +397,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#0f172a',
     backgroundColor: '#fcfcfc'
+  },
+  pickerContainer: {
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 8,
+    marginBottom: 10,
+    backgroundColor: '#fcfcfc',
+    justifyContent: 'center',
+  },
+  picker: {
+    height: Platform.OS === 'ios' ? 150 : 50,
+    width: '100%',
   },
   inputError: {
     borderColor: '#ef4444',

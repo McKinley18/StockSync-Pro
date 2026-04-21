@@ -88,8 +88,8 @@ const MyDarkTheme = {
   colors: {
     ...DarkTheme.colors,
     primary: '#3b82f6',
-    background: '#0f172a',
-    card: '#1e293b',
+    background: '#0F172A',
+    card: 'rgba(30, 41, 59, 0.7)',
     text: '#f8fafc',
     border: '#334155',
     notification: 'rgb(255, 69, 58)',
