@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, TextInput, TouchableOpacity, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { CheckCircle, Circle } from 'lucide-react-native';
 import { useProfile } from '../context/ProfileContext';
+import { updateUserProfile } from "../utils/database";
 import AppText from '../components/AppText';
 
 export default function OnboardingScreen() {

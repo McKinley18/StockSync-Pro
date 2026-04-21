@@ -159,6 +159,8 @@ export const saveUserProfile = (profile: UserProfile) => {
   saveToStorage('userProfile', userProfile);
 };
 
+export const updateUserProfile = saveUserProfile;
+
 export const updateLiabilityStatus = (accepted: boolean) => {
   userProfile.liability_accepted = accepted ? 1 : 0;
   saveToStorage('userProfile', userProfile);
