@@ -6,9 +6,9 @@ const forge = require('node-forge');
 export const setSecureItem = async (key: string, value: string) => {
   if (Platform.OS === 'web') {
     localStorage.setItem(key, value);
-  } else {
-    await SecureStore.setItemAsync(key, value);
+    return Promise.resolve();
   }
+  return await SecureStore.setItemAsync(key, value);
 };
 
 export const getSecureItem = async (key: string) => {
@@ -19,10 +19,9 @@ export const getSecureItem = async (key: string) => {
   }
 };
 
-export const hashString = (text: string) => {
-  const md = forge.md.sha256.create();
-  md.update(text);
-  return md.digest().toHex();
+export const hashString = (str: string) => {
+  // Temporary lightweight hash for web testing as requested
+  return btoa(str);
 };
 
 const hashPassword = (password: string) => {
@@ -219,7 +218,6 @@ export const updateUserProfile = databaseModule.saveUserProfile;
 export const updateLiabilityStatus = databaseModule.updateLiabilityStatus;
 export const updatePassword = databaseModule.updatePassword;
 export const hashPassword = databaseModule.hashPassword;
-export { hashString };
 
 export interface PantryItem { id?: number; name: string; barcode?: string; quantity: number; unit: string; threshold: number; price: number; category: string; expirationDate?: string; }
 export interface UserProfile { id?: number; firstName?: string; lastName?: string; email?: string; zipCode?: string; allergies: string; dislikes: string; liability_accepted: number; preferred_store?: string; frequent_items: string; password_hash?: string; }

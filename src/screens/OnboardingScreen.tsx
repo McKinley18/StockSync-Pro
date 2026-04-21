@@ -4,7 +4,7 @@ import { CheckCircle, Circle, X, Copy } from 'lucide-react-native';
 import { Picker } from '@react-native-picker/picker';
 import * as Clipboard from 'expo-clipboard';
 import { useProfile } from '../context/ProfileContext';
-import { createAccount, hashString, setSecureItem, updateUserProfile } from "../utils/database";
+import { setSecureItem, updateUserProfile, hashString, createAccount } from "../utils/database";
 import AppText from '../components/AppText';
 
 interface OnboardingScreenProps {
