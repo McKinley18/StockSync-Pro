@@ -1,6 +1,23 @@
 // StockSync Audit Date: 2026-04-20
 import { Platform } from 'react-native';
+import * as SecureStore from 'expo-secure-store';
 const forge = require('node-forge');
+
+export const setSecureItem = async (key: string, value: string) => {
+  if (Platform.OS === 'web') {
+    localStorage.setItem(key, value);
+  } else {
+    await SecureStore.setItemAsync(key, value);
+  }
+};
+
+export const getSecureItem = async (key: string) => {
+  if (Platform.OS === 'web') {
+    return localStorage.getItem(key);
+  } else {
+    return await SecureStore.getItemAsync(key);
+  }
+};
 
 export const hashString = (text: string) => {
   const md = forge.md.sha256.create();

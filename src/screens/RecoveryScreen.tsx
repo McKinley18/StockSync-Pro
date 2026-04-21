@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
 import { Lock, HelpCircle, ArrowLeft, CheckCircle } from 'lucide-react-native';
-import * as SecureStore from 'expo-secure-store';
-import { updateUserProfile, hashString, getUserProfile } from '../utils/database';
+import { updateUserProfile, hashString, getUserProfile, getSecureItem } from '../utils/database';
 import AppText from '../components/AppText';
 
 interface RecoveryScreenProps {
@@ -25,8 +24,8 @@ export default function RecoveryScreen({ onBack, onSuccess }: RecoveryScreenProp
   }, []);
 
   const loadQuestions = async () => {
-    const question1 = await SecureStore.getItemAsync('recovery_q1');
-    const question2 = await SecureStore.getItemAsync('recovery_q2');
+    const question1 = await getSecureItem('recovery_q1');
+    const question2 = await getSecureItem('recovery_q2');
     if (question1) setQ1(question1);
     if (question2) setQ2(question2);
     
@@ -37,8 +36,8 @@ export default function RecoveryScreen({ onBack, onSuccess }: RecoveryScreenProp
   };
 
   const handleVerifyAnswers = async () => {
-    const hashedA1 = await SecureStore.getItemAsync('recovery_a1');
-    const hashedA2 = await SecureStore.getItemAsync('recovery_a2');
+    const hashedA1 = await getSecureItem('recovery_a1');
+    const hashedA2 = await getSecureItem('recovery_a2');
 
     if (hashString(answer1.toLowerCase().trim()) === hashedA1 && 
         hashString(answer2.toLowerCase().trim()) === hashedA2) {

@@ -16,25 +16,27 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToSignup, onNavi
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
   const { profile } = useProfile();
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert('Error', 'Please enter both email and password');
+      setLoginError('Please enter both email and password');
       return;
     }
 
     setIsLoading(true);
+    setLoginError(null);
     try {
       const user = await verifyLogin(email, password);
       if (user) {
         onLoginSuccess(user);
       } else {
-        Alert.alert('Login Failed', 'Invalid email or password');
+        setLoginError('Failed to sign in. Invalid email or password.');
       }
     } catch (error) {
       console.error('Login error:', error);
-      Alert.alert('Error', 'An error occurred during login');
+      setLoginError('An error occurred during login. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -92,7 +94,10 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToSignup, onNavi
               placeholder="Email Address"
               placeholderTextColor="#94a3b8"
               value={email}
-              onChangeText={setEmail}
+              onChangeText={(text) => {
+                setEmail(text);
+                if (loginError) setLoginError(null);
+              }}
               keyboardType="email-address"
               autoCapitalize="none"
             />
@@ -105,7 +110,10 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToSignup, onNavi
               placeholder="Password"
               placeholderTextColor="#94a3b8"
               value={password}
-              onChangeText={setPassword}
+              onChangeText={(text) => {
+                setPassword(text);
+                if (loginError) setLoginError(null);
+              }}
               secureTextEntry
             />
           </View>
@@ -116,6 +124,12 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToSignup, onNavi
           >
             <AppText style={styles.forgotPasswordText}>Forgot Password?</AppText>
           </TouchableOpacity>
+
+          {loginError && (
+            <View style={styles.errorContainer}>
+              <AppText style={styles.errorText}>{loginError}</AppText>
+            </View>
+          )}
 
           <TouchableOpacity 
             style={[styles.loginButton, isLoading && styles.disabledButton]} 
@@ -226,7 +240,21 @@ const styles = StyleSheet.create({
   forgotPasswordText: {
     color: '#3b82f6',
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '500' as const,
+  },
+  errorContainer: {
+    backgroundColor: '#fef2f2',
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#fee2e2',
+  },
+  errorText: {
+    color: '#ef4444',
+    fontSize: 14,
+    textAlign: 'center' as const,
+    fontWeight: '500' as const,
   },
   loginButton: {
     backgroundColor: '#3b82f6',

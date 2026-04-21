@@ -2,10 +2,9 @@ import React, { useState } from 'react';
 import { View, TextInput, TouchableOpacity, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Modal, Alert } from 'react-native';
 import { CheckCircle, Circle, X, Copy } from 'lucide-react-native';
 import { Picker } from '@react-native-picker/picker';
-import * as SecureStore from 'expo-secure-store';
 import * as Clipboard from 'expo-clipboard';
 import { useProfile } from '../context/ProfileContext';
-import { createAccount, hashString, updateUserProfile } from "../utils/database";
+import { createAccount, hashString, setSecureItem, updateUserProfile } from "../utils/database";
 import AppText from '../components/AppText';
 
 interface OnboardingScreenProps {
@@ -75,11 +74,11 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
         const hashedA1 = hashString(answer1.toLowerCase().trim());
         const hashedA2 = hashString(answer2.toLowerCase().trim());
         
-        await SecureStore.setItemAsync('recovery_q1', question1);
-        await SecureStore.setItemAsync('recovery_a1', hashedA1);
-        await SecureStore.setItemAsync('recovery_q2', question2);
-        await SecureStore.setItemAsync('recovery_a2', hashedA2);
-        await SecureStore.setItemAsync('recovery_code', code);
+        await setSecureItem('recovery_q1', question1);
+        await setSecureItem('recovery_a1', hashedA1);
+        await setSecureItem('recovery_q2', question2);
+        await setSecureItem('recovery_a2', hashedA2);
+        await setSecureItem('recovery_code', code);
 
         // Create account with password hash
         createAccount({
